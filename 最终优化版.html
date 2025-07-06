@@ -1,0 +1,703 @@
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows风格小组件</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0078D4',
+                        secondary: '#0063B1',
+                        accent: '#107C10',
+                        neutral: '#333333',
+                        'neutral-light': '#F3F2F1',
+                        'neutral-dark': '#201F1E',
+                    },
+                    fontFamily: {
+                        inter: ['Segoe UI', 'Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'widget': '0 4px 20px rgba(0, 0, 0, 0.1)',
+                        'widget-hover': '0 8px 30px rgba(0, 0, 0, 0.15)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .widget-shadow {
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+            }
+            .tab-button {
+                @apply px-4 py-2 transition-all duration-200 text-center;
+            }
+            .tab-button:not(.active) {
+                @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+            }
+            .tab-button.active {
+                @apply bg-primary text-white font-medium;
+            }
+            .full-height-widget {
+                height: 100%;
+            }
+            .iframe-container {
+                height: calc(100% - 40px);
+            }
+            .responsive-iframe {
+                width: 100%;
+                height: 100%;
+            }
+            .glass-effect {
+                @apply bg-white/80 backdrop-blur-md;
+            }
+            .hover-scale {
+                @apply transition-transform duration-300 hover:scale-[1.02];
+            }
+            .bg-setting-panel {
+                @apply absolute top-0 left-0 w-full h-full bg-white/95 rounded-xl p-5 z-10 transform translate-y-full transition-transform duration-300 ease-in-out;
+            }
+            .bg-setting-panel.active {
+                @apply translate-y-0;
+            }
+            .setting-option {
+                @apply mb-4;
+            }
+            .setting-label {
+                @apply block text-sm font-medium text-gray-700 mb-1;
+            }
+            .setting-select {
+                @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary;
+            }
+            .setting-radio {
+                @apply mr-2;
+            }
+            .setting-radio-label {
+                @apply mr-4;
+            }
+            .close-btn {
+                @apply absolute top-2 right-2 text-gray-500 hover:text-gray-700;
+            }
+            .refresh-btn {
+                @apply absolute top-2 right-20 text-gray-500 hover:text-primary transition-colors duration-200;
+            }
+            .refresh-btn.loading {
+                @apply animate-spin;
+            }
+            .action-btn {
+                @apply tab-button flex items-center justify-center gap-1;
+            }
+            .collapse-btn {
+                @apply absolute top-2 left-2 text-gray-500 hover:text-gray-700 cursor-pointer;
+            }
+        }
+    </style>
+    <style>
+        body {
+            overflow: hidden;
+        }
+        .animate-fadeIn {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .loading-shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .background-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: -1;
+            opacity: 0.9;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .background-overlay.fade-out {
+            opacity: 0;
+        }
+        .content-container {
+            position: relative;
+            z-index: 1;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(241, 241, 241, 0.5);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(170, 170, 170, 0.5);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(136, 136, 136, 0.7);
+        }
+        .bg-update-indicator {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            z-index: 2;
+        }
+        .bg-update-indicator.show {
+            opacity: 1;
+        }
+        .refresh-indicator {
+            position: absolute;
+            top: 2px;
+            right: 40px;
+            background-color: rgba(0, 120, 212, 0.8);
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .refresh-indicator.show {
+            opacity: 1;
+        }
+        /* 新增样式 */
+        .floating-widget {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 50px;
+            height: 50px;
+            background-color: #0078D4;
+            border-radius: 50%;
+            z-index: 999;
+            transition: all 0.3s ease-in-out;
+        }
+        .floating-widget.expanded {
+            width: min(25%, 400px); /* 使用min()函数限制最大宽度 */
+            height: calc(100dvh - 60px); /* 使用dvh单位 */
+            border-radius: 10px;
+        }
+        .floating-widget-icon {
+            color: white;
+            font-size: 24px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+        }
+        .floating-widget-content {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+        .floating-widget.expanded .floating-widget-content {
+            display: block;
+        }
+    </style>
+    <script>
+        let currentBackground = null;
+        let backgroundUpdateInterval = null;
+        let currentRefreshRate = 3600000; // 默认1小时
+        let currentImageStyle = 'nature'; // 默认自然风格
+        let isPageVisible = true;
+        let nextBackgroundUrl = null; // 预加载的下一张背景图URL
+        let calendarIframe = null;
+        let newsIframe = null;
+        
+        // 图片缓存
+        const imageCache = new Map();
+        
+        // 错误提示函数
+        function showErrorToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'bg-update-indicator show';
+            toast.style.backgroundColor = 'rgba(220, 38, 38, 0.9)';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                if (document.body.contains(toast)) {
+                    document.body.removeChild(toast);
+                }
+            }, 5000);
+        }
+        
+        async function updateBackgroundImage(initialLoad = false, style = currentImageStyle) {
+            if (!isPageVisible) return;
+            
+            const apiKey = 'FBgyrnqz9sWVRPwlONcqLSzEFE3OD5KAvPPjSkirYW5Kz03WwMlLDTMQ';
+            let url;
+            
+            // 如果已有预加载的图片，直接使用
+            if (nextBackgroundUrl && !initialLoad) {
+                const randomPage = Math.floor(Math.random() * 100) + 1;
+                const cacheKey = `${style}-${randomPage}`;
+                imageCache.set(cacheKey, nextBackgroundUrl);
+                replaceBackgroundImage(nextBackgroundUrl);
+                showBackgroundUpdateIndicator();
+                preloadNextBackground(style); // 预加载下一张
+                return;
+            }
+            
+            const randomPage = Math.floor(Math.random() * 100) + 1;
+            const cacheKey = `${style}-${randomPage}`;
+            if (imageCache.has(cacheKey)) {
+                replaceBackgroundImage(imageCache.get(cacheKey));
+                showBackgroundUpdateIndicator();
+                preloadNextBackground(style); // 预加载下一张
+                return;
+            }
+            
+            // 修复API请求URL构建逻辑
+            if (style === 'curated') {
+                const randomPage = Math.floor(Math.random() * 100) + 1;
+                url = `https://api.pexels.com/v1/curated?per_page=1&page=${randomPage}`;
+            } else {
+                const randomPage = Math.floor(Math.random() * 100) + 1;
+                url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(style)}&per_page=1&page=${randomPage}`;
+            }
+            
+            try {
+                const response = await fetch(url, {
+                    headers: { Authorization: apiKey }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API 请求失败: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.photos && data.photos.length > 0) {
+                    const imageUrl = data.photos[0].src.original;
+                    
+                    imageCache.set(cacheKey, imageUrl);
+                    if (imageCache.size > 10) {
+                        imageCache.delete(imageCache.keys().next().value);
+                    }
+                    
+                    if (!initialLoad && currentBackground) {
+                        currentBackground.classList.add('fade-out');
+                        setTimeout(() => replaceBackgroundImage(imageUrl), 500);
+                    } else {
+                        replaceBackgroundImage(imageUrl);
+                    }
+                    
+                    showBackgroundUpdateIndicator();
+                    localStorage.setItem('lastBackgroundUpdate', new Date().toISOString());
+                    localStorage.setItem('backgroundStyle', style);
+                    
+                    // 预加载下一张背景图
+                    preloadNextBackground(style);
+                } else {
+                    throw new Error('未找到匹配的图片');
+                }
+            } catch (error) {
+                console.error('获取背景图片失败:', error);
+                showErrorToast('获取背景图片失败: ' + error.message);
+                if (!currentBackground) {
+                    const overlay = document.createElement('div');
+                    overlay.className = 'background-overlay';
+                    overlay.style.backgroundColor = '#f3f4f6';
+                    document.body.insertBefore(overlay, document.body.firstChild);
+                    currentBackground = overlay;
+                }
+            }
+        }
+        
+        // 预加载下一张背景图
+        async function preloadNextBackground(style) {
+            const apiKey = 'FBgyrnqz9sWVRPwlONcqLSzEFE3OD5KAvPPjSkirYW5Kz03WwMlLDTMQ';
+            let url;
+            
+            try {
+                if (style === 'curated') {
+                    const randomPage = Math.floor(Math.random() * 100) + 1;
+                    url = `https://api.pexels.com/v1/curated?per_page=1&page=${randomPage}`;
+                } else {
+                    const randomPage = Math.floor(Math.random() * 100) + 1;
+                    url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(style)}&per_page=1&page=${randomPage}`;
+                }
+                
+                const response = await fetch(url, {
+                    headers: { Authorization: apiKey }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`预加载请求失败: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                if (data.photos && data.photos.length > 0) {
+                    nextBackgroundUrl = data.photos[0].src.original;
+                    
+                    // 提前创建Image对象触发浏览器预加载
+                    const img = new Image();
+                    img.src = nextBackgroundUrl;
+                }
+            } catch (error) {
+                console.error('预加载背景图片失败:', error);
+                showErrorToast('预加载背景图片失败: ' + error.message);
+                nextBackgroundUrl = null;
+            }
+        }
+        
+        function replaceBackgroundImage(imageUrl) {
+            const newBackground = document.createElement('div');
+            newBackground.className = 'background-overlay';
+            newBackground.style.backgroundImage = `url(${imageUrl})`;
+            newBackground.style.opacity = '0';
+            
+            document.body.insertBefore(newBackground, document.body.firstChild);
+            
+            if (currentBackground) {
+                document.body.removeChild(currentBackground);
+            }
+            
+            currentBackground = newBackground;
+            
+            setTimeout(() => {
+                currentBackground.style.opacity = '1';
+            }, 100);
+        }
+        
+        function showBackgroundUpdateIndicator() {
+            const indicator = document.createElement('div');
+            indicator.className = 'bg-update-indicator';
+            indicator.textContent = `背景已更新 · ${new Date().toLocaleTimeString('zh-CN')}`;
+            
+            document.body.appendChild(indicator);
+            
+            setTimeout(() => {
+                indicator.classList.add('show');
+                setTimeout(() => {
+                    indicator.classList.remove('show');
+                    setTimeout(() => document.body.removeChild(indicator), 500);
+                }, 3000);
+            }, 100);
+        }
+        
+        function autoUpdateBackground() {
+            const savedRefreshRate = localStorage.getItem('backgroundRefreshRate');
+            const savedImageStyle = localStorage.getItem('backgroundStyle');
+            
+            if (savedRefreshRate) {
+                currentRefreshRate = parseInt(savedRefreshRate);
+                document.getElementById('refresh-rate').value = currentRefreshRate;
+            }
+            
+            if (savedImageStyle) {
+                currentImageStyle = savedImageStyle;
+                document.querySelector(`input[name="image-style"][value="${currentImageStyle}"]`).checked = true;
+            }
+            
+            updateBackgroundImage(true, currentImageStyle);
+            
+            if (backgroundUpdateInterval) {
+                clearInterval(backgroundUpdateInterval);
+            }
+            
+            function scheduledUpdate() {
+                if (isPageVisible) {
+                    updateBackgroundImage(false, currentImageStyle);
+                }
+                backgroundUpdateInterval = setTimeout(scheduledUpdate, currentRefreshRate);
+            }
+            
+            backgroundUpdateInterval = setTimeout(scheduledUpdate, currentRefreshRate);
+        }
+        
+        function toggleSettingsPanel() {
+            document.getElementById('bg-settings-panel').classList.toggle('active');
+            document.getElementById('bg-settings-btn').classList.toggle('active');
+        }
+        
+        function applySettings() {
+            currentRefreshRate = parseInt(document.getElementById('refresh-rate').value);
+            
+            document.querySelectorAll('input[name="image-style"]').forEach(radio => {
+                if (radio.checked) {
+                    currentImageStyle = radio.value;
+                }
+            });
+            
+            localStorage.setItem('backgroundRefreshRate', currentRefreshRate);
+            localStorage.setItem('backgroundStyle', currentImageStyle);
+            
+            updateBackgroundImage(false, currentImageStyle);
+            
+            if (backgroundUpdateInterval) {
+                clearInterval(backgroundUpdateInterval);
+            }
+            
+            function scheduledUpdate() {
+                if (isPageVisible) {
+                    updateBackgroundImage(false, currentImageStyle);
+                }
+                backgroundUpdateInterval = setTimeout(scheduledUpdate, currentRefreshRate);
+            }
+            
+            backgroundUpdateInterval = setTimeout(scheduledUpdate, currentRefreshRate);
+            
+            toggleSettingsPanel();
+            showBackgroundUpdateIndicator();
+        }
+        
+        document.addEventListener('visibilitychange', () => {
+            isPageVisible = document.visibilityState === 'visible';
+            if (isPageVisible) {
+                updateBackgroundImage(false, currentImageStyle);
+            }
+        });
+        
+        window.addEventListener('load', autoUpdateBackground);
+        window.addEventListener('unload', () => {
+            if (backgroundUpdateInterval) {
+                clearInterval(backgroundUpdateInterval);
+            }
+        });
+        
+        // 多功能按钮处理函数 - 仅保留刷新功能
+        function handleActionButton() {
+            refreshCurrentTab();
+        }
+        
+        function refreshCurrentTab() {
+            const refreshBtn = document.getElementById('action-button');
+            const indicator = document.getElementById('action-refresh-indicator');
+            
+            // 添加加载状态
+            refreshBtn.innerHTML = '<i class="fa fa-refresh fa-spin mr-1"></i> 刷新中';
+            showRefreshIndicator(indicator);
+            
+            // 使用已缓存的iframe元素，无需重新查询
+            
+            if (calendarIframe) {
+                const currentSrc = calendarIframe.src;
+                calendarIframe.src = 'about:blank';
+                setTimeout(() => {
+                    calendarIframe.src = currentSrc;
+                }, 300);
+            }
+            
+            if (newsIframe) {
+                const currentSrc = newsIframe.src;
+                newsIframe.src = 'about:blank';
+                setTimeout(() => {
+                    newsIframe.src = currentSrc;
+                }, 300);
+            }
+            
+            // 无论当前是哪个标签页，刷新后都恢复按钮状态
+            setTimeout(() => {
+                refreshBtn.innerHTML = '<i class="fa fa-refresh mr-1"></i> 刷新';
+            }, 1000);
+        }
+        
+        function showRefreshIndicator(indicator) {
+            if (indicator) {
+                indicator.textContent = `刷新中...`;
+                indicator.classList.add('show');
+                setTimeout(() => {
+                    indicator.textContent = `已刷新`;
+                    setTimeout(() => {
+                        indicator.classList.remove('show');
+                    }, 1500);
+                }, 1000);
+            }
+        }
+        
+        function switchTab(tabName) {
+            document.getElementById('calendar-content').classList.add('hidden');
+            document.getElementById('news-content').classList.add('hidden');
+            
+            document.getElementById('calendar-tab').classList.remove('active');
+            document.getElementById('news-tab').classList.remove('active');
+            document.getElementById('bg-settings-btn').classList.remove('active');
+            
+            document.getElementById(`${tabName}-content`).classList.remove('hidden');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            const panel = document.getElementById('bg-settings-panel');
+            if (panel.classList.contains('active')) {
+                panel.classList.remove('active');
+            }
+        }
+        
+        window.addEventListener('resize', adjustIframes);
+        
+        function adjustIframes() {
+            const iframes = document.querySelectorAll('iframe');
+            iframes.forEach(iframe => {
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    
+                    if (iframeDoc) {
+                        const baseFontSize = Math.max(12, window.innerWidth / 100);
+                        iframeDoc.documentElement.style.fontSize = `${baseFontSize}px`;
+                    }
+                } catch (e) {
+                    console.log('无法访问iframe内容:', e);
+                }
+            });
+        }
+        
+        window.addEventListener('load', adjustIframes);
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('calendar-tab').click();
+            
+            // 初始化时缓存DOM元素（已提前声明变量）
+            calendarIframe = document.querySelector('#calendar-content iframe');
+            newsIframe = document.querySelector('#news-content iframe');
+        });
+
+        // 修改后的函数：展开和收缩小组件窗口
+        function toggleWidget() {
+            const widget = document.getElementById('floating-widget');
+            const isExpanded = widget.classList.toggle('expanded');
+            
+            // 更新图标状态
+            const icon = document.querySelector('.floating-widget-icon');
+            if (isExpanded) {
+                icon.classList.remove('fa-th-large');
+                icon.classList.add('fa-times');
+            } else {
+                icon.classList.remove('fa-times');
+                icon.classList.add('fa-th-large');
+            }
+        }
+    </script>
+</head>
+<body class="font-inter text-neutral">
+    <div class="content-container flex flex-col p-4 md:p-8">
+        <div id="floating-widget" class="floating-widget">
+            <!-- 将点击事件从容器移到图标按钮上 -->
+            <i class="fa fa-th-large floating-widget-icon" onclick="toggleWidget()"></i>
+            <div class="floating-widget-content">
+                <section class="glass-effect rounded-xl shadow-widget hover:shadow-widget-hover overflow-hidden transition-all duration-300 full-height-widget relative">
+                    <!-- 添加收缩按钮 -->
+                    <div class="collapse-btn" onclick="toggleWidget()">
+                        <i class="fa fa-chevron-down"></i>
+                    </div>
+                    
+                    <div id="bg-settings-panel" class="bg-setting-panel">
+                        <button class="close-btn" onclick="toggleSettingsPanel()">
+                            <i class="fa fa-times"></i>
+                        </button>
+                        <h3 class="text-lg font-semibold mb-3">背景设置</h3>
+                        
+                        <div class="setting-option">
+                            <label class="setting-label">刷新频率</label>
+                            <select id="refresh-rate" class="setting-select">
+                                <option value="900000">15分钟</option>
+                                <option value="1800000">30分钟</option>
+                                <option value="3600000" selected>1小时</option>
+                                <option value="7200000">2小时</option>
+                                <option value="14400000">4小时</option>
+                                <option value="21600000">6小时</option>
+                                <option value="43200000">12小时</option>
+                                <option value="86400000">1天</option>
+                            </select>
+                        </div>
+                        
+                        <div class="setting-option">
+                            <label class="setting-label">图片样式</label>
+                            <div>
+                                <label class="setting-radio-label">
+                                    <input type="radio" name="image-style" value="nature" class="setting-radio" checked>
+                                    自然风景
+                                </label>
+                                <label class="setting-radio-label">
+                                    <input type="radio" name="image-style" value="city" class="setting-radio">
+                                    城市建筑
+                                </label>
+                                <label class="setting-radio-label">
+                                    <input type="radio" name="image-style" value="curated" class="setting-radio">
+                                    精选图片
+                                </label>
+                            </div>
+                            <div class="mt-1">
+                                <label class="setting-radio-label">
+                                    <input type="radio" name="image-style" value="abstract" class="setting-radio">
+                                    抽象艺术
+                                </label>
+                                <label class="setting-radio-label">
+                                    <input type="radio" name="image-style" value="texture" class="setting-radio">
+                                    纹理材质
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button class="w-full bg-primary text-white py-2 rounded-md hover:bg-secondary transition-colors" onclick="applySettings()">
+                            应用设置
+                        </button>
+                    </div>
+                    
+                    <!-- 优化后的导航栏 -->
+                    <div class="flex border-b border-gray-200 bg-white/90 backdrop-blur-sm shadow-sm">
+                        <!-- 日历按钮 -->
+                        <button id="calendar-tab" class="tab-button active flex-1 py-2.5 transition-all duration-200 ease-in-out text-sm font-medium" onclick="switchTab('calendar')">
+                            <i class="fa fa-calendar-o mr-1.5"></i> 日历
+                        </button>
+                        
+                        <!-- 新闻按钮 -->
+                        <button id="news-tab" class="tab-button flex-1 py-2.5 transition-all duration-200 ease-in-out text-sm font-medium" onclick="switchTab('news')">
+                            <i class="fa fa-newspaper-o mr-1.5"></i> 新闻
+                        </button>
+                        
+                        <!-- 背景设置按钮 -->
+                        <button id="bg-settings-btn" class="tab-button flex-1 py-2.5 transition-all duration-200 ease-in-out text-sm font-medium" onclick="toggleSettingsPanel()">
+                            <i class="fa fa-picture-o mr-1.5"></i> 背景
+                        </button>
+                        
+                        <!-- 功能按钮组 -->
+                        <div class="flex items-center px-2">
+                            <!-- 刷新按钮 -->
+                            <button id="action-button" class="p-2 rounded-full hover:bg-gray-100 transition-colors duration-200 flex items-center justify-center" onclick="handleActionButton()">
+                                <i class="fa fa-refresh"></i>
+                            </button>
+                            
+                            <!-- 收缩按钮 -->
+                            <button class="collapse-btn p-2 rounded-full hover:bg-gray-100 transition-colors duration-200" onclick="toggleWidget()">
+                                <i class="fa fa-chevron-down"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="calendar-content" class="iframe-container flex-1">
+                        <iframe class="responsive-iframe" frameborder="0" src="https://rili-d.jin10.com/open.php?fontSize=14px&scrolling=yes&theme=primary"></iframe>
+                    </div>
+                    
+                    <div id="news-content" class="iframe-container flex-1 hidden">
+                        <iframe class="responsive-iframe" frameborder="0" src="https://www.jin10.com/example/jin10.com.html?fontSize=14px&theme=white"></iframe>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
